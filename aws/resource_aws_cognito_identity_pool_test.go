@@ -253,6 +253,49 @@ func TestAccAWSCognitoIdentityPool_addingNewProviderKeepsOldProvider(t *testing.
 	})
 }
 
+func TestAccAWSCognitoIdentityPool_Tags(t *testing.T) {
+	name := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	resourceName := "aws_cognito_identity_pool.test_app"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t); testAccPreCheckAWSCognitoIdentity(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAWSCognitoIdentityPoolDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSCognitoIdentityPoolConfig_Tag1(name, "key1", "value1"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSCognitoIdentityPoolExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccAWSCognitoIdentityPoolConfig_Tag2(name, "key1", "value1updated", "key2", "value2"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSCognitoIdentityPoolExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "tags.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "tags.key1", "value1updated"),
+					resource.TestCheckResourceAttr(resourceName, "tags.key2", "value2"),
+				),
+			},
+			{
+				Config: testAccAWSCognitoIdentityPoolConfig_Tag1(name, "key2", "value2"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSCognitoIdentityPoolExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "tags.key2", "value2"),
+				),
+			},
+		},
+	})
+}
+
 func testAccCheckAWSCognitoIdentityPoolExists(n string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
@@ -468,4 +511,31 @@ resource "aws_cognito_identity_pool" "main" {
   openid_connect_provider_arns = ["arn:aws:iam::123456789012:oidc-provider/server.example.com"]
 }
 `, name)
+}
+
+func testAccAWSCognitoIdentityPoolConfig_Tag1(shareName, tagKey1, tagValue1 string) string {
+	return fmt.Sprintf(`
+resource "aws_cognito_identity_pool" "test_app" {
+	identity_pool_name               = %q
+	allow_unauthenticated_identities = false
+	developer_provider_name          = "my.developer"
+	tags = {
+		%q = %q
+}
+}
+`, shareName, tagKey1, tagValue1)
+}
+
+func testAccAWSCognitoIdentityPoolConfig_Tag2(shareName, tagKey1, tagValue1, tagKey2, tagValue2 string) string {
+	return fmt.Sprintf(`
+resource "aws_cognito_identity_pool" "test_app" {
+	identity_pool_name               = %q
+	allow_unauthenticated_identities = false
+	developer_provider_name          = "my.developer"
+	tags = {
+		%q = %q
+		%q = %q
+	}
+}
+`, shareName, tagKey1, tagValue1, tagKey2, tagValue2)
 }
